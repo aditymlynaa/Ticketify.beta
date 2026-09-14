@@ -85,7 +85,7 @@ class _CreateTicketScreenState extends State<CreateTicketScreen> {
               DropdownButtonFormField<String>(
                 value: _priority,
                 decoration: const InputDecoration(
-                  labelText: 'Tingkat Prioritas',
+                  labelText: 'Status Priority',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.priority_high),
                 ),
