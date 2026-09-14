@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'create_ticket_screen.dart';
+import 'notification_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -9,7 +10,10 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
+
+
 class _DashboardScreenState extends State<DashboardScreen> {
+  int _unreadCount = 0;
   bool _isLoading = true;
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _statsData;
@@ -18,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDashboardData();
+    _loadUnreadNotifications();
   }
 
   Future<void> _loadDashboardData() async {
@@ -34,6 +39,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     }
   }
+
+  Future<void> _loadUnreadNotifications() async {
+  final res = await ApiService.getNotifications();
+  if (mounted && res['status'] == 200 && res['data']['success'] == true) {
+    final List notifications = res['data']['data'] ?? [];
+    // Hitung berapa notifikasi yang 'read_at'-nya masih null
+    final unreadList = notifications.where((item) => item['read_at'] == null).toList();
+    setState(() {
+      _unreadCount = unreadList.length;
+    });
+  }
+}
 
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
@@ -116,6 +133,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         elevation: 0,
         actions: [
+         // IKON NOTIFIKASI DENGAN BADGE MERAH
+  Stack(
+    alignment: Alignment.center,
+    children: [
+      IconButton(
+        icon: const Icon(Icons.notifications_outlined),
+        tooltip: 'Notifikasi',
+        onPressed: () async {
+          // Buka halaman notifikasi
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => NotificationScreen()),
+          );
+          // Setelah balik dari halaman notifikasi, refresh angka badge-nya
+          _loadUnreadNotifications();
+        },
+      ),
+      if (_unreadCount > 0)
+        Positioned(
+          right: 8,
+          top: 8,
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            constraints: const BoxConstraints(
+              minWidth: 16,
+              minHeight: 16,
+            ),
+            child: Text(
+              _unreadCount > 99 ? '99+' : '$_unreadCount',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+    ],
+  ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.redAccent),
             tooltip: 'Logout',

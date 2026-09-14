@@ -250,5 +250,43 @@ static Future<Map<String, dynamic>> register({
       'data': {'message': 'Gagal terhubung ke server: $e'}
     };
   }
-}
+ }
+  // 1. Ambil daftar notifikasi
+  static Future<Map<String, dynamic>> getNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/notifications'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    return {
+      'status': response.statusCode,
+      'data': jsonDecode(response.body),
+    };
+  }
+
+  // 2. Tandai notifikasi sebagai 'read' (sudah dibaca)
+  static Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications/$id/read'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    return {
+      'status': response.statusCode,
+      'data': jsonDecode(response.body),
+    };
+  }
+  
 }
