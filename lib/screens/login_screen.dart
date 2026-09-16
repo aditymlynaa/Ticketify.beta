@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <-- 1. Tambahkan Import Ini
 import '../services/api_service.dart';
 import 'register_screen.dart';
 
@@ -33,6 +34,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (mounted) {
       if (res['status'] == 200) {
+        // 2. SIMPAN TOKEN KE SHAREDPREFERENCES DI SINI
+        final token = res['data']['token'] ?? res['data']['data']?['token'];
+        
+        if (token != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('token', token); // Menyimpan token dengan key 'token'
+        }
+
         // Pindah ke Halaman Utama jika Login Berhasil
         Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
       } else {

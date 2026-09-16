@@ -11,6 +11,7 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen> {
   bool _isLoading = true;
   List<dynamic> _notifications = [];
+  int _unreadCount = 0;
 
   @override
   void initState() {
@@ -19,20 +20,38 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   Future<void> _fetchNotifications() async {
-    setState(() => _isLoading = true);
-    final res = await ApiService.getNotifications();
+  setState(() => _isLoading = true);
+  final res = await ApiService.getNotifications();
 
-    if (mounted) {
-      if (res['status'] == 200 && res['data']['success'] == true) {
-        setState(() {
-          _notifications = res['data']['data'] ?? [];
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
-      }
+  // 🔍 TAMBAHKAN PRINT INI UNTUK LAKUKAN CEK:
+  print('=== DEBUG NOTIFIKASI ===');
+  print('STATUS CODE : ${res['status']}');
+  print('BODY DATA   : ${res['data']}');
+
+  if (mounted) {
+    if (res['status'] == 200) {
+      // Ambil data payload dari response
+      final payload = res['data'];
+
+      setState(() {
+        // Cek apakah data dibungkus 'data' atau berbentuk List langsung
+        if (payload is List) {
+          _notifications = payload;
+        } else if (payload is Map && payload['data'] != null) {
+          _notifications = payload['data'];
+        } else {
+          _notifications = [];
+        }
+
+        // Hitung unread count untuk badge lonceng
+        _unreadCount = _notifications.where((n) => n['read_at'] == null).length;
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   Future<void> _handleMarkAsRead(String id, int index) async {
     final res = await ApiService.markNotificationAsRead(id);

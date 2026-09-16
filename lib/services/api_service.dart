@@ -251,42 +251,42 @@ static Future<Map<String, dynamic>> register({
     };
   }
  }
-  // 1. Ambil daftar notifikasi
+ // 1. Ambil daftar notifikasi
   static Future<Map<String, dynamic>> getNotifications() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    try {
+      final headers = await _getHeaders(); // Automatis panggil getToken() & pangkas bug!
 
-    final response = await http.get(
-      Uri.parse('$baseUrl/notifications'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+      final response = await http.get(
+        Uri.parse('$baseUrl/notifications'),
+        headers: headers,
+      );
 
-    return {
-      'status': response.statusCode,
-      'data': jsonDecode(response.body),
-    };
+      return {
+        'status': response.statusCode,
+        'data': jsonDecode(response.body),
+      };
+    } catch (e) {
+      return {'status': 500, 'data': null};
+    }
   }
 
   // 2. Tandai notifikasi sebagai 'read' (sudah dibaca)
   static Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    try {
+      final headers = await _getHeaders();
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/notifications/$id/read'),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
+      final response = await http.post(
+        Uri.parse('$baseUrl/notifications/$id/read'),
+        headers: headers,
+      );
 
-    return {
-      'status': response.statusCode,
-      'data': jsonDecode(response.body),
-    };
+      return {
+        'status': response.statusCode,
+        'data': jsonDecode(response.body),
+      };
+    } catch (e) {
+      return {'status': 500, 'data': null};
+    }
   }
   
 }
