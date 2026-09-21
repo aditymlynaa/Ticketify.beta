@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // Sesuaikan IP berikut dengan IPv4 Laptop kamu
-  static const String baseUrl = 'http://192.168.1.8:8000/api';
+  static const String baseUrl = "http://192.168.1.8/api";
   
   static const _storage = FlutterSecureStorage();
 

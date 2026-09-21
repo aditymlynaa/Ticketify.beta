@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // 1. Import SharedPreferences
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'ticket_detail_screen.dart';
 import 'create_ticket_screen.dart';
@@ -15,8 +15,8 @@ class _TicketListScreenState extends State<TicketListScreen> {
   List<dynamic> _tickets = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String? _selectedStatus; // Default null = menampilkan Semua Status
-  String? _userRole;       // 2. Variabel penampung role
+  String? _selectedStatus;
+  String? _userRole;
 
   @override
   void initState() {
@@ -24,7 +24,6 @@ class _TicketListScreenState extends State<TicketListScreen> {
     _loadUserRoleAndFetch();
   }
 
-  // 3. Fungsi untuk mengambil role lalu fetch data tiket
   Future<void> _loadUserRoleAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -49,27 +48,22 @@ class _TicketListScreenState extends State<TicketListScreen> {
 
     if (mounted) {
       setState(() {
-        if (response['status'] == 200 && response['data'] != null) {
-          var resData = response['data'];
+        if (response != null) {
+          var resData = response['data'] ?? response;
 
-          // 1. Jika respons berupa Map yang membungkus key 'data'
-          if (resData is Map) {
-            if (resData.containsKey('data')) {
-              var innerData = resData['data'];
-              if (innerData is List) {
-                _tickets = innerData;
-              } else if (innerData is Map && innerData.containsKey('data')) {
-                _tickets = innerData['data'] ?? [];
-              } else {
-                _tickets = [];
-              }
+          // Parsing data serbaguna (mendukung array langsung maupun objek bertingkat)
+          if (resData is List) {
+            _tickets = resData;
+          } else if (resData is Map) {
+            if (resData['data'] != null && resData['data'] is List) {
+              _tickets = resData['data'];
+            } else if (resData['tickets'] != null && resData['tickets'] is List) {
+              _tickets = resData['tickets'];
+            } else if (resData['data'] != null && resData['data'] is Map && resData['data']['data'] is List) {
+              _tickets = resData['data']['data'];
             } else {
               _tickets = [];
             }
-          } 
-          // 2. Jika respons langsung berupa List Array
-          else if (resData is List) {
-            _tickets = resData;
           } else {
             _tickets = [];
           }
@@ -97,6 +91,128 @@ class _TicketListScreenState extends State<TicketListScreen> {
     }
   }
 
+  // Helper untuk Merapikan Format Tanggal
+  String _formatDate(String rawDate) {
+    if (rawDate.isEmpty) return '';
+    try {
+      DateTime parsedDate = DateTime.parse(rawDate).toLocal();
+      String day = parsedDate.day.toString().padLeft(2, '0');
+      String month = parsedDate.month.toString().padLeft(2, '0');
+      String year = parsedDate.year.toString();
+      String hour = parsedDate.hour.toString().padLeft(2, '0');
+      String minute = parsedDate.minute.toString().padLeft(2, '0');
+
+      return '$day/$month/$year $hour:$minute';
+    } catch (e) {
+      return rawDate;
+    }
+  }
+
+  // WIDGET CARD TIKET DENGAN BADGE NOTIFIKASI & TANGGAL RAPI
+  Widget _buildTicketCard(Map<String, dynamic> ticket) {
+    int unreadCount = 0;
+    if (ticket['unread_replies_count'] != null) {
+      unreadCount = int.tryParse(ticket['unread_replies_count'].toString()) ?? 0;
+    } else if (ticket['unread_count'] != null) {
+      unreadCount = int.tryParse(ticket['unread_count'].toString()) ?? 0;
+    }
+
+    String status = (ticket['status'] ?? 'open').toString();
+    String title = ticket['title'] ?? ticket['judul'] ?? 'Tanpa Judul';
+    String code = ticket['code'] ?? ticket['kode'] ?? '';
+    String rawCreatedAt = ticket['created_at'] ?? ticket['tanggal'] ?? '';
+    String formattedDate = _formatDate(rawCreatedAt);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Detail Informasi Kiri
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                const SizedBox(height: 6),
+                Text('Kode: $code', style: const TextStyle(fontSize: 12, color: Colors.black87)),
+                if (formattedDate.isNotEmpty)
+                  Text(
+                    'Tanggal: $formattedDate',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+              ],
+            ),
+          ),
+
+          // Status & Badge Notifikasi Kanan
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Badge Notifikasi Balasan Baru
+              if (unreadCount > 0)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 10),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$unreadCount pesan baru',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Chip Status Tiket
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(status).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: TextStyle(
+                    color: _getStatusColor(status),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,7 +226,6 @@ class _TicketListScreenState extends State<TicketListScreen> {
           ),
         ],
       ),
-      // 4. Tombol 'Buat Tiket' disembunyikan jika role == 'admin'
       floatingActionButton: _userRole != 'admin'
           ? FloatingActionButton.extended(
               onPressed: () async {
@@ -134,7 +249,7 @@ class _TicketListScreenState extends State<TicketListScreen> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'Cari kode ',
+                      hintText: 'Cari kode...',
                       prefixIcon: const Icon(Icons.search),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
@@ -204,55 +319,21 @@ class _TicketListScreenState extends State<TicketListScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             itemCount: _tickets.length,
                             itemBuilder: (context, index) {
-                              final ticket = _tickets[index];
-                              final code = ticket['code'] ?? '';
-                              final title = ticket['title'] ?? 'Tanpa Judul';
-                              final status = (ticket['status'] ?? 'open').toString();
-                              final createdAt = ticket['created_at'] ?? '';
+                              final ticket = Map<String, dynamic>.from(_tickets[index]);
+                              final code = ticket['code'] ?? ticket['kode'] ?? '';
 
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  title: Text(
-                                    title,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const SizedBox(height: 4),
-                                      Text('Kode: $code', style: const TextStyle(fontSize: 12, color: Colors.black87)),
-                                      if (createdAt.toString().isNotEmpty)
-                                        Text('Tanggal: $createdAt', style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-                                    ],
-                                  ),
-                                  trailing: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(status).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(8),
+                              return InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => TicketDetailScreen(ticketCode: code),
                                     ),
-                                    child: Text(
-                                      status.toUpperCase(),
-                                      style: TextStyle(
-                                        color: _getStatusColor(status),
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ),
-                                  onTap: () async {
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => TicketDetailScreen(ticketCode: code),
-                                      ),
-                                    );
-                                    _fetchTickets();
-                                  },
-                                ),
+                                  );
+                                  _fetchTickets();
+                                },
+                                child: _buildTicketCard(ticket),
                               );
                             },
                           ),

@@ -10,8 +10,6 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-
-
 class _DashboardScreenState extends State<DashboardScreen> {
   int _unreadCount = 0;
   bool _isLoading = true;
@@ -41,16 +39,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadUnreadNotifications() async {
-  final res = await ApiService.getNotifications();
-  if (mounted && res['status'] == 200 && res['data']['success'] == true) {
-    final List notifications = res['data']['data'] ?? [];
-    // Hitung berapa notifikasi yang 'read_at'-nya masih null
-    final unreadList = notifications.where((item) => item['read_at'] == null).toList();
-    setState(() {
-      _unreadCount = unreadList.length;
-    });
+    final res = await ApiService.getNotifications();
+    if (mounted && res['status'] == 200) {
+      final payload = res['data'];
+      List notifications = [];
+
+      // Fleksibilitas parsing struktur response API
+      if (payload is List) {
+        notifications = payload;
+      } else if (payload is Map && payload['data'] != null) {
+        notifications = payload['data'];
+      }
+
+      final unreadList = notifications.where((item) => item['read_at'] == null).toList();
+      setState(() {
+        _unreadCount = unreadList.length;
+      });
+    }
   }
-}
 
   Future<void> _handleLogout() async {
     final confirm = await showDialog<bool>(
@@ -133,50 +139,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         elevation: 0,
         actions: [
-         // IKON NOTIFIKASI DENGAN BADGE MERAH
-  Stack(
-    alignment: Alignment.center,
-    children: [
-      IconButton(
-        icon: const Icon(Icons.notifications_outlined),
-        tooltip: 'Notifikasi',
-        onPressed: () async {
-          // Buka halaman notifikasi
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => NotificationScreen()),
-          );
-          // Setelah balik dari halaman notifikasi, refresh angka badge-nya
-          _loadUnreadNotifications();
-        },
-      ),
-      if (_unreadCount > 0)
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            constraints: const BoxConstraints(
-              minWidth: 16,
-              minHeight: 16,
-            ),
-            child: Text(
-              _unreadCount > 99 ? '99+' : '$_unreadCount',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+          // IKON NOTIFIKASI DENGAN BADGE MERAH
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                tooltip: 'Notifikasi',
+                onPressed: () async {
+                  // Buka halaman notifikasi
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const NotificationScreen()),
+                  );
+                  // Setelah balik dari halaman notifikasi, refresh angka badge-nya
+                  _loadUnreadNotifications();
+                },
               ),
-              textAlign: TextAlign.center,
-            ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      formatBadgeCount(_unreadCount), // Format badge 9+
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ),
-    ],
-  ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.redAccent),
             tooltip: 'Logout',
@@ -184,7 +190,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      // Perbaikan pada floatingActionButton menggunakan kondisi !isAdmin
       floatingActionButton: !isAdmin
           ? FloatingActionButton.extended(
               onPressed: () async {
@@ -202,7 +207,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadDashboardData,
+              onRefresh: () async {
+                await _loadDashboardData();
+                await _loadUnreadNotifications();
+              },
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [

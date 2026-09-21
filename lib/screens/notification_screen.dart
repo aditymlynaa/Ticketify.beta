@@ -137,3 +137,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
     );
   }
 }
+
+
+ String formatBadgeCount(int count) {
+  if (count > 9) {
+    return '9+';
+  }
+  return count.toString();
+}
