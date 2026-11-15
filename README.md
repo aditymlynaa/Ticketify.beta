@@ -24,10 +24,10 @@ Base URL diambil dari compile-time environment variable. Default-nya
 
 ```bash
 # HP fisik (gunakan IP LAN komputer yang menjalankan Laravel)
-flutter run --dart-define=API_BASE_URL=http://192.168.1.9:8000/api
+flutter run --dart-define=API_BASE_URL=http://192.168.1.1000:8000/api
 
 # Android emulator
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2029:8000/api
 
 # iOS simulator / desktop / web
 flutter run --dart-define=API_BASE_URL=http://localhost:8000/api
