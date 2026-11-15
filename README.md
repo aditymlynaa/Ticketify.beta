@@ -1,17 +1,76 @@
-# flutter_ticket_app
+# Flutter Ticket App
 
-A new Flutter project.
+Aplikasi mobile helpdesk/ticketing untuk Flutter, terhubung ke backend Laravel
+(`api-indihome-support`) menggunakan Laravel Sanctum.
 
-## Getting Started
+## Fitur
 
-This project is a starting point for a Flutter application.
+- Login & registrasi (token disimpan di `flutter_secure_storage`)
+- Dashboard user/admin (statistik status tiket & rata-rata penanganan)
+- Daftar tiket dengan pencarian, filter status, dan badge pesan baru
+- Buat tiket baru (judul, prioritas, deskripsi)
+- Detail tiket + chat balasan; admin dapat mengubah status
+- Notifikasi in-app
 
-A few resources to get you started if this is your first Flutter project:
+## Prasyarat
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- Flutter SDK (Dart 3.13+)
+- Backend Laravel sudah berjalan dan database sudah dimigrasikan
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Konfigurasi API
+
+Base URL diambil dari compile-time environment variable. Default-nya
+`http://192.168.1.9:8000/api`.
+
+```bash
+# HP fisik (gunakan IP LAN komputer yang menjalankan Laravel)
+flutter run --dart-define=API_BASE_URL=http://192.168.1.9:8000/api
+
+# Android emulator
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+
+# iOS simulator / desktop / web
+flutter run --dart-define=API_BASE_URL=http://localhost:8000/api
+```
+
+Pastikan backend dijalankan dengan host yang bisa diakses perangkat:
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+## Menjalankan
+
+```bash
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://192.168.1.9:8000/api
+```
+
+## Pengujian & analisis
+
+```bash
+flutter analyze
+flutter test
+```
+
+## Struktur
+
+```text
+lib/
+  main.dart                 # MaterialApp, routing, global key sesi
+  screens/                  # Halaman UI
+  services/
+    api_service.dart        # Semua request HTTP + penanganan 401
+    session_manager.dart    # Pembersihan sesi & redirect ke login
+  utils/
+    date_formatter.dart     # Format tanggal Indonesia
+```
+
+## Catatan backend
+
+Migrasi terbaru menambahkan prioritas `critical`, menandai balasan admin
+(`is_admin`), dan mengirim tanggal dalam format ISO-8601. Jalankan:
+
+```bash
+php artisan migrate
+```

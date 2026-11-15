@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../services/api_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/auth_scaffold.dart';
+import '../widgets/inline_alert.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -8,321 +12,187 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _isLoading = false;
-
-  late AnimationController _animController;
-
-  late Animation<double> _titleFade;
-  late Animation<Offset> _titleSlide;
-
-  late Animation<double> _emailFade;
-  late Animation<Offset> _emailSlide;
-
-  late Animation<double> _passwordFade;
-  late Animation<Offset> _passwordSlide;
-
-  late Animation<double> _buttonFade;
-  late Animation<Offset> _buttonSlide;
-
-  late Animation<double> _footerFade;
-  late Animation<Offset> _footerSlide;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    );
-
-    _titleFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.0, 0.3, curve: Curves.easeOut)),
-    );
-    _titleSlide = Tween<Offset>(begin: const Offset(-0.3, 0), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.0, 0.3, curve: Curves.easeOut)),
-    );
-
-    _emailFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.2, 0.5, curve: Curves.easeOut)),
-    );
-    _emailSlide = Tween<Offset>(begin: const Offset(-0.3, 0), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.2, 0.5, curve: Curves.easeOut)),
-    );
-
-    _passwordFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.4, 0.7, curve: Curves.easeOut)),
-    );
-    _passwordSlide = Tween<Offset>(begin: const Offset(-0.3, 0), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.4, 0.7, curve: Curves.easeOut)),
-    );
-
-    _buttonFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.6, 0.85, curve: Curves.easeOut)),
-    );
-    _buttonSlide = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.6, 0.85, curve: Curves.easeOut)),
-    );
-
-    _footerFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.75, 1.0, curve: Curves.easeOut)),
-    );
-    _footerSlide = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animController, curve: const Interval(0.75, 1.0, curve: Curves.easeOut)),
-    );
-
-    _animController.forward();
-  }
+  bool _obscurePassword = true;
+  String? _errorMessage;
 
   @override
   void dispose() {
-    _animController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  void _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email dan Password wajib diisi!')),
-      );
-      return;
-    }
+  Future<void> _handleLogin() async {
+    FocusScope.of(context).unfocus();
 
-    setState(() => _isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     final response = await ApiService.login(
-      _emailController.text,
+      _emailController.text.trim(),
       _passwordController.text,
     );
 
-    setState(() => _isLoading = false);
-
     if (!mounted) return;
 
+    setState(() => _isLoading = false);
+
     if (response['status'] == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login Berhasil!')),
-      );
       Navigator.pushReplacementNamed(context, '/dashboard');
-    } else {
-      String message = response['data']?['message'] ?? 'Login Gagal! Cek Email/Password.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      return;
     }
+
+    setState(() {
+      _errorMessage = _messageFrom(
+        response,
+        'Email atau password salah. Silakan coba lagi.',
+      );
+    });
+  }
+
+  String _messageFrom(Map<String, dynamic> response, String fallback) {
+    final data = response['data'];
+
+    if (data is Map) {
+      final message = data['message'];
+      if (message != null && message.toString().trim().isNotEmpty) {
+        return message.toString();
+      }
+
+      final errors = data['errors'];
+      if (errors is Map && errors.isNotEmpty) {
+        final first = errors.values.first;
+        if (first is List && first.isNotEmpty) return first.first.toString();
+        return first.toString();
+      }
+    }
+
+    return fallback;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
-      body: Stack(
+    return AuthScaffold(
+      title: 'Masuk ke akun',
+      subtitle:
+          'Kelola laporan dan pantau status tiket kamu dalam satu tempat.',
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // Ornamen Atas Kanan
-          Positioned(
-            top: -50,
-            right: -50,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1E3A8A),
-                shape: BoxShape.circle,
-              ),
-            ),
+          const Text(
+            'Belum punya akun?',
+            style: TextStyle(fontSize: 13, color: AppColors.muted),
           ),
-          Positioned(
-            top: -20,
-            right: 40,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6).withOpacity(0.6),
-                shape: BoxShape.circle,
-              ),
+          TextButton(
+            onPressed: _isLoading
+                ? null
+                : () => Navigator.pushNamed(context, '/register'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 40),
             ),
+            child: const Text('Daftar sekarang'),
           ),
-
-          // Ornamen Bawah Kiri
-          Positioned(
-            bottom: -50,
-            left: -30,
-            child: Container(
-              width: 150,
-              height: 150,
-              decoration: const BoxDecoration(
-                color: Color(0xFF1E3A8A),
-                shape: BoxShape.circle,
+        ],
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_errorMessage != null) ...[
+              InlineAlert(message: _errorMessage!),
+              const SizedBox(height: 20),
+            ],
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(
+                hintText: 'nama@perusahaan.com',
+                prefixIcon: Icon(Icons.alternate_email_rounded, size: 20),
               ),
+              validator: (value) {
+                final email = value?.trim() ?? '';
+                if (email.isEmpty) return 'Email wajib diisi';
+                if (!email.contains('@') || !email.contains('.')) {
+                  return 'Format email belum benar';
+                }
+                return null;
+              },
             ),
-          ),
-
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // SIGN IN Title
-                    FadeTransition(
-                      opacity: _titleFade,
-                      child: SlideTransition(
-                        position: _titleSlide,
-                        child: const Text(
-                          'SIGN IN',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.5,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 36),
-
-                    // Input Email
-                    FadeTransition(
-                      opacity: _emailFade,
-                      child: SlideTransition(
-                        position: _emailSlide,
-                        child: _buildCustomTextField(
-                          controller: _emailController,
-                          hintText: 'Email',
-                          icon: Icons.person_outline,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Input Password
-                    FadeTransition(
-                      opacity: _passwordFade,
-                      child: SlideTransition(
-                        position: _passwordSlide,
-                        child: _buildCustomTextField(
-                          controller: _passwordController,
-                          hintText: 'Password',
-                          icon: Icons.lock_outline,
-                          isPassword: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    // Button SIGN IN
-                    FadeTransition(
-                      opacity: _buttonFade,
-                      child: SlideTransition(
-                        position: _buttonSlide,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1E3A8A),
-                            foregroundColor: Colors.white,
-                            elevation: 4,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Text(
-                                  'SIGN IN',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
-                                ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Footer
-                    FadeTransition(
-                      opacity: _footerFade,
-                      child: SlideTransition(
-                        position: _footerSlide,
-                        child: Column(
-                          children: [
-                            GestureDetector(
-                              onTap: () {},
-                              child: const Text(
-                                'Lupa Password?',
-                                style: TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text("Belum punya akun? Register! ", style: TextStyle(color: Colors.grey, fontSize: 13)),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.pushNamed(context, '/register');
-                                  },
-                                  child: const Text(
-                                    'Register',
-                                    style: TextStyle(
-                                      color: Color(0xFF1E3A8A),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.password],
+              onFieldSubmitted: (_) => _isLoading ? null : _handleLogin(),
+              decoration: InputDecoration(
+                hintText: 'Masukkan password',
+                prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+                suffixIcon: IconButton(
+                  tooltip: _obscurePassword
+                      ? 'Tampilkan password'
+                      : 'Sembunyikan password',
+                  onPressed: () {
+                    setState(() => _obscurePassword = !_obscurePassword);
+                  },
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 20,
+                  ),
                 ),
               ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Password wajib diisi';
+                }
+                return null;
+              },
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCustomTextField({
-    required TextEditingController controller,
-    required String hintText,
-    required IconData icon,
-    bool isPassword = false,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: isPassword,
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
-          prefixIcon: Icon(icon, color: Colors.grey),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.pushNamed(context, '/forgot-password'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  minimumSize: const Size(0, 36),
+                ),
+                child: const Text('Lupa password?'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _isLoading ? null : _handleLogin,
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Masuk'),
+            ),
+          ],
         ),
       ),
     );
