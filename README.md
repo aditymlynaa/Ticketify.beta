@@ -43,7 +43,7 @@ php artisan serve --host=0.0.0.0 --port=8000
 
 ```bash
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://192.168.1.9:8000/api
+flutter run --dart-define=API_BASE_URL=http://192.168.-.-:8000/api
 ```
 
 ## Pengujian & analisis
